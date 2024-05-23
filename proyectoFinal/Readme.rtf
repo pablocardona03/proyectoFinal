@@ -1,0 +1,597 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2761
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica-Bold;\f1\fswiss\fcharset0 Helvetica;\f2\fnil\fcharset134 PingFangSC-Regular;
+\f3\fnil\fcharset0 Menlo-Regular;}
+{\colortbl;\red255\green255\blue255;\red251\green2\blue7;\red11\green90\blue124;\red251\green0\blue7;
+\red0\green0\blue0;\red0\green0\blue0;}
+{\*\expandedcolortbl;;\cssrgb\c100000\c14913\c0;\cssrgb\c0\c42931\c55996;\cssrgb\c100000\c12195\c0;
+\cssrgb\c0\c0\c0;\csgray\c0;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww33400\viewh17940\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+
+\f0\b\fs36 \cf0  Readme
+\f1\b0\fs24 \
+\
+
+\fs28 \ul Configuraci\'f3n inicial del entorno virtual:\ulnone \
+
+\fs24 \
+Inicialmente se requiere crear un entorno virtual compuesto por 3 m\'e1quinas virtuales, una que funcionar\'e1 como balanceadora de carga (loadBalancer) y las dos m\'e1quinas que se encargar\'e1n de resolver las peticiones de los usuarios (servidorWeb1 y servidorWeb2); de esta manera sabemos que el vVgrantfile tendr\'e1 una arquitectura similar a la siguiente.\
+\
+\
+________________________________________________________________________________________\
+# -*- mode: ruby -*-\
+# vi: set ft=ruby :\
+Vagrant.configure("2") do |config|\
+    config.vm.define :loadBalancer do |loadBalancer|\
+        loadBalancer.vm.box = "bento/ubuntu-23.0rm64"\
+        loadBalancer.vm.network :private_network, ip: "192.168.50.30"\
+        loadBalancer.vm.hostname = "loadBalancer"\
+    end\
+\
+    config.vm.define :webServer1 do |webServer1|\
+        webServer1.vm.box = "bento/ubuntu-23.04-arm64"\
+        webServer1.vm.network :private_network, ip: "192.168.50.10"\
+        webServer1.vm.hostname = "webServer1"\
+    end\
+\
+    config.vm.define :webServer2 do |webServer2|\
+        webServer2.vm.box = "bento/ubuntu-23.04-arm64"\
+        webServer2.vm.network :private_network, ip: "192.168.50.20"\
+        webServer2.vm.hostname = "webServer2"\
+    end\
+end\
+________________________________________________________________________________________\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf2 Nota: Revisar la box seleccionada pues esta es funcional en equipos macOS con chip de apple silicone.\cf0 \
+\
+\cf3 para windows quedar\'eda de la siguiente manera.\cf0 \
+________________________________________________________________________________________\
+# -- mode: ruby --\
+# vi: set ft=ruby :\
+Vagrant.configure("2") do |config|\
+    config.vm.define :loadBalancer do |loadBalancer|\
+        loadBalancer.vm.box = "bento/ubuntu-22.04"\
+        loadBalancer.vm.network :private_network, ip: "192.168.50.30"\
+        loadBalancer.vm.hostname = "loadBalancer"\
+    end\
+\
+    config.vm.define :webServer1 do |webServer1|\
+        webServer1.vm.box = "bento/ubuntu-22.04"\
+        webServer1.vm.network :private_network, ip: "192.168.50.10"\
+        webServer1.vm.hostname = "webServer1"\
+    end\
+\
+    config.vm.define :webServer2 do |webServer2|\
+        webServer2.vm.box = "bento/ubuntu-22.04"\
+        webServer2.vm.network :private_network, ip: "192.168.50.20"\
+        webServer2.vm.hostname = "webServer2"\
+    end\
+end\
+________________________________________________________________________________________\
+\
+Posteriormente se crean las m\'e1quinas virtuales y se procede a configurar cada una.\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+
+\fs28 \cf0 \ul \ulc0 Configuraci\'f3n de la m\'e1quina "LoadBalancer"\
+
+\fs24 \ulnone \
+Para la m\'e1quina que sirve de balanceadora de Carga ejecutaremos los siguientes comandos.\
+________________________________________________________________________________________\
+sudo -i\
+\
+apt-get update && apt-get upgrade -y\
+\
+apt-get install nginx\
+________________________________________________________________________________________\
+\
+una vez instalado nginx en la m\'e1quina balanceador, debemos redirigir las peticiones del puerto 80 de esta m\'e1quina hacia los dos servidores donde se encotrar\'e1 la configuraci\'f3n de las aplicaciones, para lo anterior creamos un archivo con un nombre de dominio, en este caso ser\'e1 "proyecto.com"  en la carpeta \
+/etc/nginx/sites-available con el siguiente comando:\
+\
+________________________________________________________________________________________\
+sudo vim /etc/nginx/sites-available/proyecto.com\
+________________________________________________________________________________________\
+\
+en este documento debemos escribir la siguiente configuraci\'f3n.\
+\
+________________________________________________________________________________________\
+server \{\
+        listen 80;\
+        location / \{\
+            proxy_pass http://backend;\
+        \}\
+\
+\}\
+\
+upstream backend \{\
+\
+        server 192.168.50.10;\
+        server 192.168.50.20;\
+\
+\}\
+________________________________________________________________________________________\
+\
+\
+Es necesario remover el sitio que viene habilitado por defecto, para esto ejecutamos el siguiente c\'f3digo.\
+\
+________________________________________________________________________________________\
+rm -r /etc/nginx/sites-enabled/default\
+________________________________________________________________________________________\
+\
+posteriormente habilitamos el sitio web y reiniciamos el servicio de nginx:\
+\
+________________________________________________________________________________________\
+ln -s /etc/nginx/sites-available/proyecto.com /etc/nginx/sites-enabled/\
+\
+systemctl restart nginx\
+________________________________________________________________________________________\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+
+\fs28 \cf0 \ul \ulc0 Configuraci\'f3n de la m\'e1quina "webServer1" y "webServer2"
+\fs24 \ulnone \
+\
+Ahora iniciamos las m\'e1quinas virtuales "webServer1" y "webServer2" y ejecutamos los siguientes c\'f3digos para ambas.\
+________________________________________________________________________________________\
+sudo -i\
+\
+apt install apache2\
+________________________________________________________________________________________\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf2 nota: si sale un error correr "apt-get update" y posteriormente "apt install apache2" nuevamente\cf0 \
+\
+posterior a la instalaci\'f3n configuramos nuestra p\'e1gina web, en este caso se usar\'e1 la que se encuentra habilitada por defecto, accediendo al siguiente archivo y edit\'e1ndolo seg\'fan la preferencia, se borra todo el contenido del archivo y se introduce el c\'f3digo HTML de la p\'e1gina que ser\'e1 clonada en ambas m\'e1quinas:\
+\
+________________________________________________________________________________________\
+sudo vim /var/www/html/index.html\
+________________________________________________________________________________________\
+\
+Una vez realizado esto se reinicia el servicio apache2:\
+\
+________________________________________________________________________________________\
+systemctl restart apache2\
+________________________________________________________________________________________\
+\
+finalmente, repetimos el mismo proceso para el otro servidor web, se recomienda alojar una p\'e1gina clon con un cambio que indique cuando la respuesta proviene del servidor 1 y el servidor 2, como el ejemplo que se muestra a continuaci\'f3n.\
+\
+\
+________________________________________________________________________________________\
+<!DOCTYPE html>\
+<html lang="es">\
+<head>\
+    <meta charset="UTF-8">\
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">\
+    <title>Mi P\'e1gina Web en CMD Linux numero 1</title>\
+    <style>\
+        /* Estilos CSS aqu\'ed */\
+        body \{\
+            font-family: Arial, sans-serif;\
+            margin: 0;\
+            padding: 0;\
+            background-color: #f0f0f0;\
+            color: #333;\
+        \}\
+        header \{\
+            background-color: #333;\
+            color: #fff;\
+            padding: 20px;\
+            text-align: center;\
+        \}\
+        .container \{\
+            max-width: 800px;\
+            margin: 20px auto;\
+            padding: 0 20px;\
+        \}\
+        h1 \{\
+            font-size: 2em;\
+            margin-bottom: 20px;\
+        \}\
+        p \{\
+            font-size: 1.1em;\
+            line-height: 1.5;\
+        \}\
+    </style>\
+</head>\
+<body>\
+    <header>\
+        <h1>Mi P\'e1gina Web en CMD 1 Linux</h1>\
+    </header>\
+    <div class="container">\
+        <p>Bienvenido a mi p\'e1gina web 1 ejecutada desde la l\'ednea de comandos en Linux.</p>\
+        <p>\'a1Aqu\'ed puedes agregar tu contenido HTML y CSS personalizado!</p>\
+    </div>\
+</body>\
+</html>\
+________________________________________________________________________________________\
+\
+Para la p\'e1gina del servidor web dos puede ser la siguiente.\
+________________________________________________________________________________________\
+\
+<!DOCTYPE html>\
+<html lang="es">\
+<head>\
+    <meta charset="UTF-8">\
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">\
+    <title>Mi P\'e1gina Web en CMD Linux numero 1</title>\
+    <style>\
+        /* Estilos CSS aqu\'ed */\
+        body \{\
+            font-family: Arial, sans-serif;\
+            margin: 0;\
+            padding: 0;\
+            background-color: #f0f0f0;\
+            color: #333;\
+        \}\
+        header \{\
+            background-color: #333;\
+            color: #fff;\
+            padding: 20px;\
+            text-align: center;\
+        \}\
+        .container \{\
+            max-width: 800px;\
+            margin: 20px auto;\
+            padding: 0 20px;\
+        \}\
+        h1 \{\
+            font-size: 2em;\
+            margin-bottom: 20px;\
+        \}\
+        p \{\
+            font-size: 1.1em;\
+            line-height: 1.5;\
+        \}\
+    </style>\
+</head>\
+<body>\
+    <header>\
+        <h1>Mi P\'e1gina Web 2 en CMD Linux</h1>\
+    </header>\
+    <div class="container">\
+        <p>Bienvenido a mi p\'e1gina web 2 ejecutada desde la l\'ednea de comandos en Linux.</p>\
+        <p>\'a1Aqu\'ed puedes agregar tu contenido HTML y CSS personalizado!</p>\
+    </div>\
+</body>\
+</html>\
+________________________________________________________________________________________\
+\
+En este punto podemos acceder a trav\'e9s de la ip del balanceador de carga (192.168.50.30) desde nuestro navegador y deber\'edamos observar como al recargar la p\'e1gina cambia entre la p\'e1gina alojada en el servidor web 1 y 2.\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+
+\fs28 \cf0 \ul Configuraci\'f3n de la m\'e1quina "webServer1" y "webServer2" empleando Docker compose + Flask + MySQL\
+\
+
+\fs24 \ulnone Con el fin de aumentar la exigencia de las pruebas a realizar y simular una aproximaci\'f3n mayor a la vida real se puede implementar una aplicaci\'f3n empleando Docker compose, Flask y MySQL, en este orden de ideas, si deseamos implementar esto, debemos seguir los siguientes comandos en ambas m\'e1quinas.\
+\
+________________________________________________________________________________________\
+sudo apt-get update\
+\
+sudo apt-get install ca-certificates curl\
+\
+sudo install -m 0755 -d /etc/apt/keyrings\
+\
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc\
+\
+sudo chmod a+r /etc/apt/keyrings/docker.asc\
+\
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null\
+\
+sudo apt-get update\
+\
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin\
+\
+sudo usermod -aG docker $USER\
+________________________________________________________________________________________\
+\
+Una vez instalado docker relogueamos la m\'e1quina para permitir la ejecuci\'f3n de comandos sin necesidad de usar el comando sudo y posteriormente ejecutamos los siguientes comandos para clonar un repositorio de un tutorial que servir\'e1 para esta aplicaci\'f3n.\
+________________________________________________________________________________________\
+git clone https://github.com/stavshamir/docker-tutorial\
+________________________________________________________________________________________\
+\
+Posteriormente modificamos el archivo de configuraci\'f3n del docker compose para que mapee el puerto de la aplicaci\'f3n hacia el puerto 80.\
+________________________________________________________________________________________\
+cd docker-tutorial\
+\
+vim docker-compose.yml\
+________________________________________________________________________________________\
+\
+En este archivo debemos reemplazar en el apartado de app la linea "ports:5000:5000"  por "ports:80:5000" y subir los contenedores.\
+________________________________________________________________________________________\
+sudo docker compose up -d\
+________________________________________________________________________________________\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf3 para mac:\cf0 \
+Es necesario realizar algunas modificaciones adicionales en los siguientes puntos.\
+\
+En Dockerfile, se debe cambiar "FROM python:3.6" por "FROM python"; en requirements.txt se debe cambiar  "mysql-connector" por "mysql-connector-python" y finalmente, en el archivo "docker-compose.yml" se debe cambiar "image: mysql:5.7" por "image: mysql".\
+\
+Finalmente se sugiere agregar un dato en cada m\'e1quina virtual para diferenciar entre el servidor uno y el servidor 2 siguiendo los siguientes comandos. \cf4 IMPORTANTE:\cf0  la contrase\'f1a de este usuario es root\
+\
+________________________________________________________________________________________\
+sudo apt-get install mysql-client\
+\
+mysql --host=127.0.0.1 --port=32000 -u root -p\
+\
+use knights;\
+\
+\pard\pardeftab720\partightenfactor0
+\cf0 INSERT INTO favorite_colors (name, color) VALUES ('Servidor', 'uno');\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf0 ________________________________________________________________________________________\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf2 Nota: Si ya realiz\'f3 la configuraci\'f3n para emplear apache, es necesario detener este servicio puesto que ocupa el puerto 80. Para esto ejecutar: "sudo systemctl stop apache2"\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf0 \
+\
+
+\fs28 \ul Pruebas de carga empleando artillery\
+
+\fs24 \ulnone \
+Desde la m\'e1quina anfitri\'f3n lo primero que debemos hacer es descargar node.js desde este link: https://nodejs.org/en , una vez realizado esto abrimos una nueva pesta\'f1a de cmd y confirmamos la instalaci\'f3n desde ejecutando el comando.\
+________________________________________________________________________________________\
+node -v\
+________________________________________________________________________________________\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf2 Nota: si tiene una pesta\'f1a de CMD ya abierta es necesario cerrarla y volverla a abrir\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf5 Una vez confirmada la instalaci\'f3n podemos realizar los siguientes comandos para instalar artillery en nuestra m\'e1quina.\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf3 para mac:\cf0 \
+________________________________________________________________________________________\
+sudo npm install -g npm@latest\
+\
+npm install -g artillery\
+________________________________________________________________________________________\
+\
+\cf3 para windows:\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf0 ________________________________________________________________________________________\
+npm install -g npm@latest\
+\
+npm install -g artillery\
+________________________________________________________________________________________\cf3 \
+\cf0 \
+Una vex instalado artillery se debe entrar a la ruta donde est\'e1 alojado el vagrantfile del proyecto, posteriormente crear un archivo con el editor de texto, es necesario que este quede guardado con el nombre "configuracion.yaml"  \
+________________________________________________________________________________________\
+config:\
+  target: "http://192.168.50.30"\
+  phases:\
+    - duration: 10  #Aqu\'ed debe colocar la duraci\'f3n del testeo en segundos\
+      arrivalRate: 800  #Aqu\'ed debe colocar la cantidad de peticiones por segundo\
+scenarios:\
+  - flow:\
+      - get:\
+          url: "/"\
+________________________________________________________________________________________\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf2 Nota: se recomienda duplicar el vagrantfile y editar la copia del archivo, posteriormente presionar guardar como, y en tipo de archivo "Todos los archivos" de esta manera se garantiza que el archivo tome el formato .yaml y no .txt al ser editado\cf0 \
+\
+Vemos entonces como esta prueba por defecto entregar\'e1 8000 peticiones, en grupos de 800 peticiones/segundo durante 10 segundos; estos par\'e1metros pueden ser modificados para obtener resultados diferentes donde es relevante observar la cantidad de peticiones resueltas, las peticiones fallidas, porcentaje de fallas entre otros. (Artillery entrega un informe detallando esta informaci\'f3n)\
+Para realizar la prueba se ejecutar\'e1 el siguiente comando.\
+\
+________________________________________________________________________________________\
+artillery run configuracion.yaml\
+________________________________________________________________________________________\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+
+\fs28 \cf0 \ul Configuraci\'f3n de Firewall 
+\fs24 \ulnone \
+\
+Con el fin de prevenir la conexi\'f3n directa a las p\'e1ginas alojadas en las ip's 192.168.50.10 y 192.168.50.30 se configura un firewall que contendr\'e1 la siguiente lista de reglas en orden:\
+- Se admite la conexi\'f3n SSH\
+- Se admite el tr\'e1fico desde la ip 192.168.50.30 por el puerto 80\
+- Se deniega el trafico del puerto 80 para cualquier otra ip\
+- Se admite completamente el tr\'e1fico por el puerto 9100\
+para conseguir esto, debemos ejecutar las siguientes lineas de comando en ambas m\'e1quinas virtuales\
+\
+________________________________________________________________________________________\
+sudo ufw status\
+\
+sudo ufw allow ssh\
+\
+sudo ufw enable\
+\
+sudo ufw allow from 192.168.50.30 to any port 80 proto tcp\
+\
+sudo ufw deny 80/tcp\
+\
+sudo ufw allow 9100/tcp\
+\
+sudo ufw allow 9100/udp\
+\
+sudo ufw reload\
+\
+sudo ufw disable\
+\
+sudo ufw enable\
+\
+sudo ufw reload\
+________________________________________________________________________________________\
+\
+\
+\
+
+\fs28 \ul Monitoreo de las m\'e1quinas empleando node exporter, prometheus y grafana \
+
+\fs24 \ulnone \
+Para contextualizar lo que se va a realizar tendremos node exporter instalado en la m\'e1quinas que alojan el servicio web (webServer1 y webServer2) permitiendo exportar las m\'e9tricas de la m\'e1quina por el puerto 9100, prometheus se encarga de recopilar los datos que entrega el node exporter de cada m\'e1quina, almacen\'e1ndolos en una base de datos, finalmente, grafana se emplea como una interfaz gr\'e1fica de visualizaci\'f3n de las m\'e9tricas y tiene f\'e1cil implementaci\'f3n con prometheus.\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf0 \ul node exporter:\ulnone \
+Lo primero que debemos hacer es descargar, extraer y node exporter desde el repositorio de github en cada m\'e1quina de servidor web, para esto ejecutamos los siguientes comandos en ambas m\'e1quinas.\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf3 para mac:\cf0 \
+________________________________________________________________________________________\
+cd\
+\
+wget https://github.com/prometheus/node_exporter/releases/download/v1.8.0/node_exporter-1.8.0.linux-arm64.tar.gz\
+\
+tar xvfz node_exporter-1.8.0.linux-arm64.tar.gz\
+\
+cd node_exporter-1.8.0.linux-arm64\
+\
+./node_exporter\
+________________________________________________________________________________________\
+\cf3 para windows:\cf0 \
+________________________________________________________________________________________\
+cd\
+\
+wget https://github.com/prometheus/node_exporter/releases/download/v1.8.0/node_exporter-1.8.0.linux-amd64.tar.gz\
+\
+tar xvfz node_exporter-1.8.0.linux-amd64.tar.gz\
+\
+cd node_exporter-1.8.0.linux-amd64\
+\
+./node_exporter\
+________________________________________________________________________________________\
+\
+En este punto las dos m\'e1quinas deben estar exportando las m\'e9tricas de sus sistemas.\
+\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf0 \ul Prometheus y grafana empleando docker:\ulnone \
+\
+Para la implementaci\'f3n de prometheus y grafana se decidi\'f3 implementar ambos servicios en contenedores docker permitiendo as\'ed emplear la misma m\'e1quina para ambos servicios, en este caso se emplear\'e1 la m\'e1quina  "loadBalancer", sin embargo, ser\'eda recomendable emplear una m\'e1quina externa al balanceador para su monitoreo.\
+\
+________________________________________________________________________________________\
+sudo apt-get update\
+\
+sudo apt-get install ca-certificates curl\
+\
+sudo install -m 0755 -d /etc/apt/keyrings\
+\
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc\
+\
+sudo chmod a+r /etc/apt/keyrings/docker.asc\
+\
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null\
+\
+sudo apt-get update\
+\
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin\
+\
+sudo usermod -aG docker $USER\
+________________________________________________________________________________________\
+\
+Una vez realizado esto habremos instalado correctamente docker en nuestra m\'e1quina virtual y podremos crear  nuestra estructura de proyecto para correr por medio de docker-compose los contenedores de prometheus y grafana al mismo tiempo.\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf4 Nota: recuerde reloguearse en la m\'e1quina para aplicar los cambios en los permisos del usuario y que pueda emplear los comandos Docker sin sudo.\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf0 \
+________________________________________________________________________________________\
+\
+\uc0\u9492 \u9472 \u9472  project\
+  	  
+\f2 \'a9\'c0
+\f1 \uc0\u9472 \u9472  docker-compose.yml\
+    	  \uc0\u9492 \u9472 \u9472  prometheus\
+  	  	    
+\f2 \'a9\'c0
+\f1 \uc0\u9472 \u9472  Dockerfile\
+  	  	    \uc0\u9492 \u9472 \u9472  prometheus.yml\
+________________________________________________________________________________________\
+\
+partiendo de esta arquitectura, sabemos que debemos ejecutar los siguientes comandos.\
+________________________________________________________________________________________ \
+cd\
+ \
+mkdir project\
+\
+cd project/\
+\
+vim docker-compose.yml\
+________________________________________________________________________________________\
+\
+Posteriormente debemos introducir lo siguiente en el archivo docker-compose.yml.\
+________________________________________________________________________________________\
+version: '3'\
+\
+services:\
+  prometheus:\
+    build: ./prometheus\
+    ports:\
+      - "9090:9090"\
+    volumes:\
+      - /home/vagrant/sincro:/etc/prometheus\
+\
+  grafana:\
+    image: grafana/grafana\
+    ports:\
+      - "3000:3000"\
+________________________________________________________________________________________\
+\
+Ahora debemos crear el directorio de prometheus y el archivo Dockerfile dentro de este.\
+________________________________________________________________________________________\
+mkdir prometheus\
+cd prometheus/\
+vim Dockerfile\
+________________________________________________________________________________________\
+\
+El Dockerfile tendr\'e1 el siguiente archivo de configuraci\'f3n\
+________________________________________________________________________________________\
+FROM prom/prometheus\
+\
+# Copiar el archivo de configuraci\'f3n a la imagen\
+COPY prometheus.yml /etc/prometheus/prometheus.yml\
+\
+________________________________________________________________________________________\
+Ahora debemos crear el archivo de configuraci\'f3n de prometheus\
+________________________________________________________________________________________\
+ vim prometheus.yml\
+________________________________________________________________________________________\
+E introducir el siguiente archivo.\
+\
+________________________________________________________________________________________\
+global:\
+  scrape_interval: 5s\
+  evaluation_interval: 5s\
+  scrape_timeout: 4s\
+\
+scrape_configs:\
+  - job_name: 'node_exporter'\
+    scrape_interval: 5s\
+    scrape_timeout: 4s\
+    static_configs:\
+      - targets: ['192.168.50.10:9100', '192.168.50.20:9100']\
+\
+________________________________________________________________________________________\
+\
+una vez realizado esto volveremos al directorio de project y ejecutaremos el comando que sube los contenedores creados.\
+________________________________________________________________________________________\
+cd ..\
+docker-compose up -d\
+________________________________________________________________________________________\
+\
+y verificamos el estado de los contenedores\
+________________________________________________________________________________________\
+docker ps\
+________________________________________________________________________________________\
+\
+una vez realizado esto podemos acceder a desde el navegador a la ip: 192.168.50.30:9090 para observar el estado de prometheus, donde si todo sali\'f3 correctamente deber\'eda mostrar desde la pesta\'f1a status>Targets las dos m\'e1quinas en estado UP.\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf4 Nota: Recuerde que en las m\'e1quinas de los servidores web debe estar el node exporter activo.\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+\cf0 \
+Para ver el servicio de grafana podemos acceder a desde el navegador a la ip: 192.168.50.30:3000 con las credenciales:\
+username: admin\
+password: admin\
+\
+crear nueva contrase\'f1a, se recomienda una f\'e1cil de recordar como grafana\
+\
+Para la configuraci\'f3n de los dashboards, en la barra lateral acceder a connections > Data sources seleccionar prometheus, en el apartado de connection se pone el URL http://192.168.50.30:9090/ y posteriormente se presiona \'93Save & test\'94 posteriormente en la barra lateral se selecciona Dashboards, se crea un nuevo dashboard, se presiona \'93Import a dashboard\'94 y se selecciona el dashboard de tu preferencia, se pueden buscar en la p\'e1gina https://grafana.com/grafana/dashboards/ o en su defecto se recomienda usar la ID del dashboard \'9311074\'94 se carga el dashboard y en victorial metrics se selecciona el Data Source creado.\
+\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri-2748\pardirnatural\qj\partightenfactor0
+
+\f3\fs26 \cf6 \CocoaLigature0 \
+\
+}
