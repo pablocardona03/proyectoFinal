@@ -1,0 +1,10 @@
+config:
+  target: "http://192.168.50.30" # IP del load balancer
+  phases:
+    - duration: 60
+      arrivalRate: 500
+scenarios:
+  - flow:
+      - get:
+          url: "/"
+
